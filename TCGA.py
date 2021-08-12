@@ -9,7 +9,7 @@ from urllib.request import urlretrieve
 
 now = os.getcwd()
 
-# url = 'http://api.gdc.cancer.gov/data/9a4679c3-855d-4055-8be9-3577ce10f66e'
+url = 'http://api.gdc.cancer.gov/data/9a4679c3-855d-4055-8be9-3577ce10f66e'
 name = 'EBPlusPlusAdjustPANCAN_IlluminaHiSeq_RNASeqV2-v2.geneExp.tsv'
 # =============================================================================
 # exp_filepath = os.path.join(now, name)
@@ -254,19 +254,55 @@ v = tcga_id['cancer_type'].value_counts()
 cancer_list = tcga_id[tcga_id['cancer_type'].isin(v.index[v.gt(500)])]
 
 # PCA Plot and Scree Plot
-#tcga_pca_plotting(tcga_expr_df,cancer_list['cancer_type'].unique())
+# tcga_pca_plotting(tcga_expr_df,cancer_list['cancer_type'].unique())
 
 # UMAP Plot
-#tcga_umap(tcga_expr_df,cancer_list['cancer_type'].unique(),n_neighbors = 15, min_dist=0.1)
+# tcga_umap(tcga_expr_df,cancer_list['cancer_type'].unique(),n_neighbors = 15, min_dist=0.1)
+
+
+gene_df_iso = gene_df[['entrez_gene_id','symbol']]
+
+# Creating dictionary that will be used to map entrez ids to gene symols.
+gene_dict = gene_df_iso.set_index('entrez_gene_id').to_dict()['symbol']
+gene_dict = {str(k):str(v) for k,v in gene_dict.items()}
+
+tcga_symbols = tcga_expr_df.rename(columns = gene_dict)
+header_list = tcga_symbols.columns.values.tolist()
+header_list.append('SAMPLE_BARCODE')
 
 
 
-# Superimpose mutation data.
+# Filter for only valid genes and genes I have expression data for
+mutation_data = pd.read_csv('pancan_mutation_freeze.tsv',
+                            sep = '\t',
+                            usecols = header_list)
 
-mutation_data = pd.read_csv('pancan_mutation_freeze.tsv', sep = '\t')
+mutation_data = mutation_data.set_index('SAMPLE_BARCODE')
 
-# print(mutation_data.head())
-print()
+
+mutation_data = mutation_data.loc[:, mutation_data.columns.isin(gene_df.symbol.astype(str))]
+
+
+mutation_data.columns = [str(x) + '_mutation' for x in mutation_data.columns]
+
+
+print(mutation_data.shape)
+print(tcga_symbols.shape)
+
+final_df = mutation_data.join(tcga_symbols)
+print(final_df.shape)
+
+sns.scatterplot(data = final_df, x = range(1,len(final_df.index) + 1), y = 'A1BG', hue = 'A1BG_mutation')
+plt.show()
+
+
+
+
+
+
+
+
+
 
 
 
