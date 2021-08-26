@@ -267,10 +267,6 @@ gene_dict = gene_df_iso.set_index('entrez_gene_id').to_dict()['symbol']
 gene_dict = {str(k):str(v) for k,v in gene_dict.items()}
 
 tcga_symbols = tcga_expr_df.rename(columns = gene_dict)
-# =============================================================================
-# header_list = tcga_symbols.columns.values.tolist()
-# header_list.append('SAMPLE_BARCODE')
-# =============================================================================
 
 
 # Loading data set initially to find only most mutated genes.
@@ -313,7 +309,7 @@ mutation_data = mutation_data.loc[:, mutation_data.columns.isin(gene_df.symbol.a
 genes_inters = set(mutation_data.columns).intersection(set(tcga_symbols.columns))
 print('These are the genes you can choose from: {}'.format(genes_inters))
 
-
+# Small function to that will create a scatterplot of gene expression data stratified by mutation status.
 def plot_mutation(mutation_df,expression_df,gene):
     mutation_expr_df = expression_df.join(mutation_df[gene],rsuffix = '_mutation')
     sns.scatterplot(data = mutation_expr_df,
@@ -323,31 +319,36 @@ def plot_mutation(mutation_df,expression_df,gene):
     
     plt.show()
 
-plot_mutation(mutation_data,tcga_symbols,'NAV3')
 
 
-# =============================================================================
-# final_df = tcga_symbols.join(mutation_data['DMD'],rsuffix = '_mutation')
-# print(tcga_symbols.shape)
-# 
-# print(final_df.shape)
-# 
-# sns.scatterplot(data = final_df, x = range(1,len(final_df.index) + 1), y = 'DMD', hue = 'DMD_mutation')
-# plt.show()
-# =============================================================================
+# Function that plot mutation data using UMAP
 
+def UMAP_mutation_plot(expression_df,mutation_df,gene):
+    
+    stand_exp = StandardScaler().fit_transform(expression_df.values)
+    
+    reducer = umap.UMAP(n_neighbors=15,min_dist=0.1)
+    
+    umap_data = reducer.fit_transform(stand_exp)
+    
+    umap_df = pd.DataFrame(umap_data,
+                           index = expression_df.index,
+                           columns = ['UMAP1','UMAP2'])
+    
+    
+    mut_expr = umap_df.join(mutation_df[gene])
+    
+    sns.scatterplot(data = mut_expr,
+                    x = 'UMAP1',
+                    y = 'UMAP2',
+                    hue = gene,
+                    alpha = 0.5,)
+    
+    plt.show()
 
+plot_mutation(mutation_data,tcga_symbols,'IDH1')
 
-
-
-
-
-
-
-
-
-
-
+UMAP_mutation_plot(tcga_symbols,mutation_data,'IDH1')
 
 
 
