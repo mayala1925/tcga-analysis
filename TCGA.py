@@ -23,7 +23,7 @@ name = 'EBPlusPlusAdjustPANCAN_IlluminaHiSeq_RNASeqV2-v2.geneExp.tsv'
 # =============================================================================
 
 # Only reading in the first 100 rows
-tcga_expr_df = pd.read_csv(name, index_col=0, sep='\t',nrows=100 )
+tcga_expr_df = pd.read_csv(name, index_col=0, sep='\t')
 
 # Commit from https://github.com/cognoma/cancer-data/
 sample_commit = 'da832c5edc1ca4d3f665b038d15b19fced724f4c'
@@ -267,15 +267,39 @@ gene_dict = gene_df_iso.set_index('entrez_gene_id').to_dict()['symbol']
 gene_dict = {str(k):str(v) for k,v in gene_dict.items()}
 
 tcga_symbols = tcga_expr_df.rename(columns = gene_dict)
-header_list = tcga_symbols.columns.values.tolist()
-header_list.append('SAMPLE_BARCODE')
+# =============================================================================
+# header_list = tcga_symbols.columns.values.tolist()
+# header_list.append('SAMPLE_BARCODE')
+# =============================================================================
+
+
+# Loading data set initially to find only most mutated genes.
+def find_most_mutated(data,amount_to_subset):
+    """Loads full data set, and selects the most mutated genes and returns them as an index object"""
+    mutation_data = pd.read_csv(data, sep = '\t')
+   
+    mutation_data = mutation_data.set_index('SAMPLE_BARCODE')
+    
+    mutations = mutation_data.sum()
+    
+    most_mutated = mutations.nlargest(amount_to_subset)
+    
+    
+    return most_mutated
+    
+mutated_100 = find_most_mutated('pancan_mutation_freeze.tsv',100)    
+
+
+mutated_list = list(mutated_100.index)
+
+mutated_list.append('SAMPLE_BARCODE')
 
 
 
 # Filter for only valid genes and genes I have expression data for
 mutation_data = pd.read_csv('pancan_mutation_freeze.tsv',
                             sep = '\t',
-                            usecols = header_list)
+                            usecols = mutated_list)
 
 mutation_data = mutation_data.set_index('SAMPLE_BARCODE')
 
@@ -283,17 +307,34 @@ mutation_data = mutation_data.set_index('SAMPLE_BARCODE')
 mutation_data = mutation_data.loc[:, mutation_data.columns.isin(gene_df.symbol.astype(str))]
 
 
-mutation_data.columns = [str(x) + '_mutation' for x in mutation_data.columns]
+# mutation_data.columns = [str(x) + '_mutation' for x in mutation_data.columns]
+
+# Finding only genes that are in both the mutation data and gene_symbol data.
+genes_inters = set(mutation_data.columns).intersection(set(tcga_symbols.columns))
+print('These are the genes you can choose from: {}'.format(genes_inters))
 
 
-print(mutation_data.shape)
-print(tcga_symbols.shape)
+def plot_mutation(mutation_df,expression_df,gene):
+    mutation_expr_df = expression_df.join(mutation_df[gene],rsuffix = '_mutation')
+    sns.scatterplot(data = mutation_expr_df,
+                    x = range(1,len(mutation_expr_df.index) + 1),
+                    y = gene,
+                    hue = '{}_mutation'.format(gene))
+    
+    plt.show()
 
-final_df = mutation_data.join(tcga_symbols)
-print(final_df.shape)
+plot_mutation(mutation_data,tcga_symbols,'NAV3')
 
-sns.scatterplot(data = final_df, x = range(1,len(final_df.index) + 1), y = 'A1BG', hue = 'A1BG_mutation')
-plt.show()
+
+# =============================================================================
+# final_df = tcga_symbols.join(mutation_data['DMD'],rsuffix = '_mutation')
+# print(tcga_symbols.shape)
+# 
+# print(final_df.shape)
+# 
+# sns.scatterplot(data = final_df, x = range(1,len(final_df.index) + 1), y = 'DMD', hue = 'DMD_mutation')
+# plt.show()
+# =============================================================================
 
 
 
