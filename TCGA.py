@@ -8,9 +8,9 @@ from urllib.request import urlretrieve
 
 
 
-now = os.getcwd()
-
 # =============================================================================
+# now = os.getcwd()
+# 
 # url = 'http://api.gdc.cancer.gov/data/9a4679c3-855d-4055-8be9-3577ce10f66e'
 name = 'EBPlusPlusAdjustPANCAN_IlluminaHiSeq_RNASeqV2-v2.geneExp.tsv'
 # exp_filepath = os.path.join(now, name)
@@ -24,7 +24,7 @@ name = 'EBPlusPlusAdjustPANCAN_IlluminaHiSeq_RNASeqV2-v2.geneExp.tsv'
 # =============================================================================
 
 # Only reading in the first 100 rows
-tcga_expr_df = pd.read_csv(name, index_col=0, sep='\t')
+# tcga_expr_df = pd.read_csv(name, index_col=0, sep='\t')
 
 # Commit from https://github.com/cognoma/cancer-data/
 sample_commit = 'da832c5edc1ca4d3f665b038d15b19fced724f4c'
@@ -58,23 +58,25 @@ gene_df = (
 
 # Load gene updater - define up to date Entrez gene identifiers where appropriate
 url = 'https://raw.githubusercontent.com/cognoma/genes/{}/data/updater.tsv'.format(genes_commit)
-updater_df = pd.read_csv(url, sep='\t')
-
-old_to_new_entrez = dict(zip(updater_df.old_entrez_gene_id,
-                             updater_df.new_entrez_gene_id))
-
-tcga_expr_df.index = tcga_expr_df.index.map(lambda x: x.split('|')[1])
-
-tcga_expr_df = (tcga_expr_df
-    .dropna(axis='rows')
-    .rename(index=old_to_new_entrez)
-    .groupby(level=0).mean()
-    .transpose()
-    .sort_index(axis='rows')
-    .sort_index(axis='columns')
-)
-
-tcga_expr_df.index.rename('sample_id', inplace=True)
+# =============================================================================
+# updater_df = pd.read_csv(url, sep='\t')
+# 
+# old_to_new_entrez = dict(zip(updater_df.old_entrez_gene_id,
+#                              updater_df.new_entrez_gene_id))
+# 
+# tcga_expr_df.index = tcga_expr_df.index.map(lambda x: x.split('|')[1])
+# 
+# tcga_expr_df = (tcga_expr_df
+#     .dropna(axis='rows')
+#     .rename(index=old_to_new_entrez)
+#     .groupby(level=0).mean()
+#     .transpose()
+#     .sort_index(axis='rows')
+#     .sort_index(axis='columns')
+# )
+# 
+# tcga_expr_df.index.rename('sample_id', inplace=True)
+# =============================================================================
 
 
 # Update sample IDs to remove multiple samples measured on the same tumor
@@ -277,24 +279,26 @@ tcga_symbols = tcga_expr_df.rename(columns = gene_dict)
 from tcga_functions import *
 
 # Loading data set initially to find only most mutated genes.
-mutated_100 = find_most_mutated('pancan_mutation_freeze.tsv',100)    
-
-
-mutated_list = list(mutated_100.index)
-
-mutated_list.append('SAMPLE_BARCODE')
-
-
-
-# Filter for only valid genes and genes I have expression data for
-mutation_data = pd.read_csv('pancan_mutation_freeze.tsv',
-                            sep = '\t',
-                            usecols = mutated_list)
-
-mutation_data = mutation_data.set_index('SAMPLE_BARCODE')
-
-
-mutation_data = mutation_data.loc[:, mutation_data.columns.isin(gene_df.symbol.astype(str))]
+# =============================================================================
+# mutated_100 = find_most_mutated('pancan_mutation_freeze.tsv',100)    
+# 
+# 
+# mutated_list = list(mutated_100.index)
+# 
+# mutated_list.append('SAMPLE_BARCODE')
+# 
+# 
+# 
+# # Filter for only valid genes and genes I have expression data for
+# mutation_data = pd.read_csv('pancan_mutation_freeze.tsv',
+#                             sep = '\t',
+#                             usecols = mutated_list)
+# 
+# mutation_data = mutation_data.set_index('SAMPLE_BARCODE')
+# 
+# 
+# mutation_data = mutation_data.loc[:, mutation_data.columns.isin(gene_df.symbol.astype(str))]
+# =============================================================================
 
 
 # mutation_data.columns = [str(x) + '_mutation' for x in mutation_data.columns]
@@ -311,5 +315,46 @@ print('These are the genes you can choose from: {}'.format(genes_inters))
 
 
 
+# Function that filters for cancer type and gene mutation data, then creates a UMAP plot of the expression data.
+def UMAP_cancer_plot(expression_data, cancer_data, cancer_type, gene_mutation_data, gene_name, n_neighbors = 15, min_dist = 0.1):
+    single_cancer = cancer_data[cancer_data['cancer_type'] == cancer_type] # filter for the cancer type of interest
+    
+    expr_data_cancer = expression_data.merge(single_cancer['cancer_type'], left_index = True, right_index = True)
+    expr_data_cancer = expr_data_cancer.drop('cancer_type', axis = 1)
+    standardized_data = StandardScaler().fit_transform(expr_data_cancer.values) # standardizing gene expression data
+    
+    reducer = umap.UMAP(n_neighbors = n_neighbors, min_dist = min_dist) #initializing UMAP model
+    
+    umap_data = reducer.fit_transform(standardized_data) # Fitting UMAP model to expression data and putting back into dataframe.
+    umap_df = pd.DataFrame(umap_data,
+                           index = expr_data_cancer.index,
+                           columns = ['UMAP1','UMAP2'])
+    
+    final_df = umap_df.merge(mutation_data[gene_name],left_index = True, right_index = True)
+    
+    sns.scatterplot(data = final_df,
+                    x = 'UMAP1',
+                    y = 'UMAP2',
+                    hue = gene_name,
+                    )
+    plt.title(cancer_type + ' UMAP Plot')
+    plt.show()
+
+
+                                                   
+# =============================================================================
+# stratified_cancer = tcga_symbols.merge(cancer_list['cancer_type'], left_index = True, right_index = True)
+# 
+# print(cancer_list.shape)
+# print(tcga_symbols.shape)
+# print(stratified_cancer.shape)
+# 
+# strat_cancer = cancer_list[cancer_list['cancer_type'] == 'BRCA']
+# 
+# print(strat_cancer.shape)
+# =============================================================================
+
+
+UMAP_cancer_plot(tcga_symbols, cancer_list, 'LGG', mutation_data, 'IDH1')
 
 
