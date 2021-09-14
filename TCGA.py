@@ -229,6 +229,7 @@ def tcga_pca_plotting(gene_data,cancer_types_iterable):
 
 
 import umap
+import umap.plot
 
 def tcga_umap(gene_data,cancer_types_iterable,n_neighbors = 15,min_dist = 0.1):
     standardized_data = StandardScaler().fit_transform(gene_data.values)
@@ -251,7 +252,6 @@ def tcga_umap(gene_data,cancer_types_iterable,n_neighbors = 15,min_dist = 0.1):
                     )
     plt.title('UMAP Plot')
 
-print('hello I got here')
 
 
 
@@ -316,9 +316,10 @@ print('These are the genes you can choose from: {}'.format(genes_inters))
 
 
 # Function that filters for cancer type and gene mutation data, then creates a UMAP plot of the expression data.
-def UMAP_cancer_plot(expression_data, cancer_data, cancer_type, gene_mutation_data, gene_name, n_neighbors = 15, min_dist = 0.1):
+def UMAP_cancer_plot_1(expression_data, cancer_data, cancer_type, gene_mutation_data, gene_name, n_neighbors = 15, min_dist = 0.1):
+    """This function first filters for cancer type then trains UMAP only on that cancer type expression data."""
     single_cancer = cancer_data[cancer_data['cancer_type'] == cancer_type] # filter for the cancer type of interest
-    
+       
     expr_data_cancer = expression_data.merge(single_cancer['cancer_type'], left_index = True, right_index = True)
     expr_data_cancer = expr_data_cancer.drop('cancer_type', axis = 1)
     standardized_data = StandardScaler().fit_transform(expr_data_cancer.values) # standardizing gene expression data
@@ -341,20 +342,80 @@ def UMAP_cancer_plot(expression_data, cancer_data, cancer_type, gene_mutation_da
     plt.show()
 
 
-                                                   
+# Similar function that trains UMAP on ALL the expression data before filtering.
+def UMAP_cancer_plot_2(expression_data, cancer_data, cancer_type, gene_mutation_data, gene_name, n_neighbors = 15, min_dist = 0.1):
+    """This function first trains UMAP on ALL of the expression data, then does the filtering of cancer type."""
+    single_cancer = cancer_data[cancer_data['cancer_type'] == cancer_type] # filter for the cancer type of interest
+    
+    standardized_data = StandardScaler().fit_transform(expression_data.values) # standardizing gene expression data
+    reducer = umap.UMAP(n_neighbors = n_neighbors, min_dist = min_dist) #initializing UMAP model
+    umap_data = reducer.fit_transform(standardized_data) # Fitting UMAP model to expression data and putting back into dataframe.
+
+    umap_df = pd.DataFrame(umap_data,
+                           index = expression_data.index,
+                           columns = ['UMAP1','UMAP2'])
+        
+    expr_data_cancer = umap_df.merge(single_cancer['cancer_type'], left_index = True, right_index = True)
+    expr_data_cancer = expr_data_cancer.drop('cancer_type', axis = 1)
+    
+    
+    final_df = expr_data_cancer.merge(mutation_data[gene_name],left_index = True, right_index = True)
+    
+    sns.scatterplot(data = final_df,
+                    x = 'UMAP1',
+                    y = 'UMAP2',
+                    hue = gene_name,
+                    )
+    plt.title(cancer_type + ' UMAP Plot')
+    plt.show()                                              
+
+
 # =============================================================================
-# stratified_cancer = tcga_symbols.merge(cancer_list['cancer_type'], left_index = True, right_index = True)
-# 
-# print(cancer_list.shape)
-# print(tcga_symbols.shape)
-# print(stratified_cancer.shape)
-# 
-# strat_cancer = cancer_list[cancer_list['cancer_type'] == 'BRCA']
-# 
-# print(strat_cancer.shape)
+# def UMAP_cancer_plot_3(expression_data, cancer_data, cancer_type, gene_mutation_data, gene_name, n_neighbors = 15, min_dist = 0.1):
+#     """This function first filters for cancer type then trains UMAP only on that cancer type expression data."""
+#     single_cancer = cancer_data[cancer_data['cancer_type'] == cancer_type] # filter for the cancer type of interest
+#        
+#     expr_data_cancer = expression_data.merge(single_cancer['cancer_type'], left_index = True, right_index = True)
+#     expr_data_cancer = expr_data_cancer.drop('cancer_type', axis = 1)
+#     standardized_data = StandardScaler().fit_transform(expr_data_cancer.values) # standardizing gene expression data
+#     
+#     reducer = umap.UMAP(n_neighbors = n_neighbors, min_dist = min_dist) #initializing UMAP model
+#     
+#     umap_data = reducer.fit(standardized_data) # Fitting UMAP model to expression data and putting back into dataframe.
+#     umap_df = pd.DataFrame(umap_data,
+#                            index = expr_data_cancer.index,
+#                            columns = ['UMAP1','UMAP2'])
+#     
+#     final_df = umap_df.merge(mutation_data[gene_name],left_index = True, right_index = True)
+#     
+#     umap.plot.points(umap_data, labels = final_df[gene_name])
 # =============================================================================
+    
+
+sing_can = cancer_list[cancer_list['cancer_type'] == 'LGG']
+
+expr_data_c = tcga_symbols.merge(sing_can['cancer_type'], left_index = True, right_index = True) 
+expr_data_c = expr_data_c.drop('cancer_type', axis = 1) 
+standardized_d = StandardScaler().fit_transform(expr_data_c.values)
+
+stand_df = pd.DataFrame(data = standardized_d,
+                        index = expr_data_c.index,
+                        columns = expr_data_c.columns)
 
 
-UMAP_cancer_plot(tcga_symbols, cancer_list, 'LGG', mutation_data, 'IDH1')
+mut_df = stand_df.merge(mutation_data['IDH1'],left_index = True, right_index = True)
+
+reducer = umap.UMAP()
+
+UMAP_data = reducer.fit(mut_df.loc[:, mut_df.columns != 'IDH1_y'])
+
+umap.plot.points(UMAP_data, labels = mut_df['IDH1_y'], theme = 'fire')
+plt.title('LGG UMAP Plot')
 
 
+
+# UMAP_cancer_plot_1(tcga_symbols, cancer_list, 'LGG', mutation_data, 'IDH1')
+
+# UMAP_cancer_plot_2(tcga_symbols, cancer_list, 'LGG', mutation_data, 'IDH1')
+
+# UMAP_cancer_plot_3(tcga_symbols,cancer_list, 'LGG', mutation_data, 'IDH1')
