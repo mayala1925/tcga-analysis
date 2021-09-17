@@ -426,5 +426,3 @@ def UMAP_cancer_plot_3(expression_data, cancer_data, cancer_type, gene_mutation_
 # UMAP_cancer_plot_2(tcga_symbols, cancer_list, 'LGG', mutation_data, 'IDH1')
 
 UMAP_cancer_plot_3(tcga_symbols,cancer_list, 'LGG', mutation_data, 'ATRX', n_components = 2)
-
-
